@@ -1,3 +1,13 @@
+# import face_recognition
+import unittest
+import os
+import numpy as np
+from click.testing import CliRunner
+
+from face_recognition import api
+from face_recognition import face_recognition_cli
+from face_recognition import face_detection_cli
+
 import os
 import numpy as np
 from face_recognition import api
@@ -11,44 +21,31 @@ def get_face_encodings(folder_path):
         file_path = os.path.join(folder_path, file_name)
         image = api.load_image_file(file_path)
         face_encodings = api.face_encodings(image)
-        for encoding in face_encodings:
-            encodings.append(encoding)
-            file_paths.append(file_path)  # Associate each encoding with the image path
+        if face_encodings:
+            encodings.append(face_encodings[0])  # Assuming one face per image
+            file_paths.append(file_path)
     return encodings, file_paths
 
-# Paths to known and unknown face folders
 known_folder = "photos/known_faces"
 unknown_folder = "photos/unknown_faces"
 
-# Get encodings and file paths for both known and unknown images
 known_encodings, known_paths = get_face_encodings(known_folder)
 unknown_encodings, unknown_paths = get_face_encodings(unknown_folder)
 
-# Combine all encodings and paths
 all_encodings = known_encodings + unknown_encodings
-all_paths = known_paths + unknown_paths
+print(len(all_encodings[0]))
+db = DBSCAN(eps=0.5, min_samples=2, metric="euclidean").fit(all_encodings)
+labels = db.labels_
 
-# Run DBSCAN on all encodings
-dbscan = DBSCAN(eps=0.6, min_samples=1, metric="euclidean").fit(all_encodings)
-labels = dbscan.labels_
-
-# Organize clusters by unique faces
-face_clusters = defaultdict(set)
-
+clusters = defaultdict(list)
 for idx, label in enumerate(labels):
-    if label != -1:  # Exclude noise points
-        image_path = all_paths[idx]
-        face_clusters[label].add(image_path)
+    image_path = known_paths[idx] if idx < len(known_encodings) else unknown_paths[idx - len(known_encodings)]
+    clusters[label].append(image_path)
 
-# Display clusters
-for label, images in face_clusters.items():
-    print(f"Cluster {label} (unique face):")
+for label, images in clusters.items():
+    if label == -1:
+        print("Unclustered faces:")
+    else:
+        print(f"Cluster {label}:")
     for image_path in images:
-        print(f"  - {image_path}")
-
-# For unclustered (noise) points
-unclustered_images = [all_paths[idx] for idx, label in enumerate(labels) if label == -1]
-if unclustered_images:
-    print("\nUnclustered faces:")
-    for image_path in set(unclustered_images):  # Unique images only
         print(f"  - {image_path}")
