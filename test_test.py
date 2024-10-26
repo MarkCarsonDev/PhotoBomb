@@ -26,11 +26,6 @@ unknown_encodings, unknown_paths = get_face_encodings(unknown_folder)
 
 # Combine all encodings and paths
 all_encodings = known_encodings + unknown_encodings
-<<<<<<< Updated upstream
-
-db = DBSCAN(eps=0.6, min_samples=2, metric="euclidean").fit(all_encodings)
-labels = db.labels_
-=======
 all_paths = known_paths + unknown_paths
 
 # Run DBSCAN on all encodings
@@ -39,7 +34,6 @@ labels = dbscan.labels_
 
 # Organize clusters by unique faces
 face_clusters = defaultdict(set)
->>>>>>> Stashed changes
 
 for idx, label in enumerate(labels):
     if label != -1:  # Exclude noise points
