@@ -33,8 +33,8 @@ known_encodings, known_paths = get_face_encodings(known_folder)
 unknown_encodings, unknown_paths = get_face_encodings(unknown_folder)
 
 all_encodings = known_encodings + unknown_encodings
-
-db = DBSCAN(eps=0.6, min_samples=2, metric="euclidean").fit(all_encodings)
+print(len(all_encodings[0]))
+db = DBSCAN(eps=0.5, min_samples=2, metric="euclidean").fit(all_encodings)
 labels = db.labels_
 
 clusters = defaultdict(list)
