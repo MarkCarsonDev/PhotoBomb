@@ -7,27 +7,15 @@ import { Tabs, Link } from 'expo-router';
 
 
 
-export default function RootLayout() {
-  return (
-    <Tabs>
-      <Tabs.Screen 
-        name="index" 
-        options={{ 
-          href: null,
-          headerTitle: "My Library", 
-          headerRight: () => (
-            <View>
-              <Link href="/settings"> <AntDesign name="user" size={24} color="black" /> </Link>
-            </View>
-          ),
-          }}/>
-      <Tabs.Screen 
-        name="settings" 
-        options={{ 
-          headerTitle: "Settings",
-          href: null, 
 
-          }}/>
-    </Tabs>
+export default function Layout() {
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+      }}>
+      <Stack.Screen name = "index" />
+      <Stack.Screen name = "settings" />
+      </Stack>
   );
 }
