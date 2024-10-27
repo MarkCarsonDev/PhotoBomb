@@ -13,28 +13,43 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Photo:
-    def __init__(self, file_path, upload_timestamp=None):
-        self.photo_id = str(uuid.uuid4())  # Unique identifier for the photo
+    def __init__(
+        self, 
+        file_path: str, 
+        upload_timestamp: str = None, 
+        is_account_photo: bool = False, 
+        author_id: str = None, 
+        face_embeddings: List[List[float]] = None, 
+        photo_id: str = None
+    ):
+        self.photo_id = photo_id or str(uuid.uuid4())  # Unique identifier for the photo
         self.file_path = file_path
         self.image = None
         self.face_locations = []
         self.face_encodings = []
         self.metadata = {}
         self.upload_timestamp = upload_timestamp or datetime.utcnow().isoformat()
-        self.face_hash = ''
-    
-        self.load_image()
-        self.process_faces()
-        self.generate_metadata()
+        self.is_account_photo = is_account_photo
+        self.author_id = author_id  # Reference to User UID
+        
+        if face_embeddings:
+            self.face_encodings = [np.array(enc) for enc in face_embeddings]
+            self.face_locations = []  # Optional: You can store face locations if needed
+            self.generate_metadata()
+        else:
+            self.load_image()
+            self.process_faces()
+            self.generate_metadata()
     
     def load_image(self):
         """Loads the image from the file path with error handling."""
+        if not os.path.exists(self.file_path):
+            logging.error(f"File not found: {self.file_path}")
+            self.image = None
+            return
         try:
             self.image = face_recognition.load_image_file(self.file_path)
             logging.info(f"Loaded image: {self.file_path}")
-        except FileNotFoundError:
-            logging.error(f"File not found: {self.file_path}")
-            self.image = None
         except Exception as e:
             logging.error(f"Error loading image {self.file_path}: {e}")
             self.image = None
@@ -63,6 +78,8 @@ class Photo:
                 'image_height': self.image.shape[0],
                 'image_width': self.image.shape[1],
                 'upload_timestamp': self.upload_timestamp,
+                'is_account_photo': self.is_account_photo,
+                'author_id': self.author_id,
                 'photo_id': self.photo_id
             }
         else:
@@ -73,10 +90,12 @@ class Photo:
                 'image_height': None,
                 'image_width': None,
                 'upload_timestamp': self.upload_timestamp,
+                'is_account_photo': self.is_account_photo,
+                'author_id': self.author_id,
                 'photo_id': self.photo_id
             }
     
-    def save_metadata(self, output_directory):
+    def save_metadata(self, output_directory: str):
         """Saves the metadata to a JSON file."""
         metadata_file = os.path.join(
             output_directory, self.metadata['file_name'] + '_metadata.json'
@@ -88,7 +107,7 @@ class Photo:
         except Exception as e:
             logging.error(f"Failed to save metadata for {self.metadata['file_name']}: {e}")
     
-    def save_encodings(self, output_directory):
+    def save_encodings(self, output_directory: str):
         """Saves the face encodings to a pickle file."""
         encodings_file = os.path.join(
             output_directory, self.metadata['file_name'] + '_encodings.pkl'
@@ -100,6 +119,41 @@ class Photo:
         except Exception as e:
             logging.error(f"Failed to save encodings for {self.metadata['file_name']}: {e}")
     
+    @staticmethod
+    def from_dict(data: dict) -> 'Photo':
+        """
+        Creates a Photo instance from a dictionary (e.g., Firestore document).
+        
+        Args:
+            data (dict): Dictionary containing photo data from Firestore.
+        
+        Returns:
+            Photo: An instance of the Photo class.
+        """
+        required_fields = ['file_path', 'author_id']
+        for field in required_fields:
+            if field not in data:
+                raise ValueError(f"Missing required field '{field}' in photo document.")
+        
+        file_path = data['file_path']
+        upload_timestamp = data.get('upload_timestamp', datetime.utcnow().isoformat())
+        is_account_photo = data.get('IsAccountPhoto', False)
+        author_id = data['author_id']
+        photo_id = data.get('photo_id', str(uuid.uuid4()))
+        face_embeddings = data.get('face_embeddings', [])
+        
+        # Instantiate Photo without processing if face_embeddings are provided
+        photo = Photo(
+            file_path=file_path, 
+            upload_timestamp=upload_timestamp, 
+            is_account_photo=is_account_photo, 
+            author_id=author_id, 
+            face_embeddings=face_embeddings, 
+            photo_id=photo_id
+        )
+        
+        return photo
+    
     def to_dict(self) -> dict:
         """
         Converts the Photo instance to a dictionary suitable for Firestore.
@@ -108,41 +162,10 @@ class Photo:
             dict: A dictionary representation of the Photo instance.
         """
         return {
-            'face_encodings': [enc.tolist() for enc in self.face_encodings],
+            'IsAccountPhoto': self.is_account_photo,
+            'face_embeddings': [emb.tolist() for emb in self.face_encodings],
+            'file_path': self.file_path,
+            'author_id': self.author_id,
+            'photo_id': self.photo_id,
+            'upload_timestamp': self.upload_timestamp
         }
-    @staticmethod
-    def from_dict(data: dict) -> 'Photo':
-        """
-        Creates a Photo instance from a dictionary (e.g., Firestore document).
-        
-        Args:
-            data (dict): Dictionary containing photo data.
-        
-        Returns:
-            Photo: An instance of the Photo class.
-        """
-        # Extract required fields with defaults
-        file_path = data.get('file_path')
-        upload_timestamp = data.get('upload_timestamp', datetime.utcnow().isoformat())
-        photo_id = data.get('photo_id', str(uuid.uuid4()))
-        
-        # Instantiate Photo without processing
-        photo = Photo(file_path, upload_timestamp)
-        photo.photo_id = photo_id
-        
-        # Load metadata if available
-        metadata = data.get('metadata', {})
-        photo.metadata = metadata
-        
-        # Load face locations and encodings if available
-        face_locations = data.get('face_locations', [])
-        face_encodings = data.get('face_encodings', [])
-        photo.face_locations = face_locations
-        photo.face_encodings = [np.array(enc) for enc in face_encodings]
-        
-        # Optionally, you can skip loading the image and processing faces since data is already provided
-        # photo.load_image()
-        # photo.process_faces()
-        # photo.generate_metadata()
-        
-        return photo
