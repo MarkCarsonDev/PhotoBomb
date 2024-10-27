@@ -10,42 +10,44 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
  * @param {boolean} isVerification - Indicates if the photo is a verification photo.
  * @returns {Promise<string>} - The download URL of the uploaded photo.
  */
-export const uploadPhoto = async (userId: string, photoBlob: Blob, isVerification: boolean): Promise<string> => {
-  const maxRetries = 3; // Set the max retry count
-  let retryCount = 0;
+export const uploadPhoto = async (userId: string, photoBlob: Blob, isVerification: boolean): Promise<void> => {
+  const maxRetries = 3;
+  let attempt = 0;
 
-  while (retryCount < maxRetries) {
+  while (attempt < maxRetries) {
     try {
-      console.log(`Attempting upload for user: ${userId}, attempt #${retryCount + 1}`);
-
+      // Generate a unique filename
       const timestamp = Date.now();
       const filePath = `users/${userId}/photos/${timestamp}.jpg`;
       const storageRef = ref(storage, filePath);
 
+      // Upload the photo to Firebase Storage
       await uploadBytes(storageRef, photoBlob);
-      console.log("Upload to Firebase Storage completed.");
 
+      // Get the download URL
       const downloadURL = await getDownloadURL(storageRef);
-      console.log("Download URL retrieved from Firebase:", downloadURL);
 
+      // Create a new document in the 'photos' collection with an incremental ID
       const photosCollectionRef = collection(db, 'photos');
       await addDoc(photosCollectionRef, {
         author_uid: userId,
-        embeddings: [], // Placeholder for future implementation
+        embeddings: [], // To be implemented as needed
         filepath: downloadURL,
         is_verification_photo: isVerification,
         created_at: serverTimestamp(),
       });
-      console.log("Photo metadata successfully added to Firestore.");
 
-      return downloadURL; // Return the URL if successful
+      console.log('Photo uploaded successfully');
+      return; // Exit function if successful
     } catch (error) {
-      console.error(`Error uploading photo on attempt #${retryCount + 1}:`, error);
-      retryCount += 1;
-      if (retryCount >= maxRetries) {
-        console.error("Max retries reached. Failing upload.");
-        throw error;
+      console.error(`Error uploading photo on attempt ${attempt + 1}:`, error);
+      attempt++;
+      if (attempt >= maxRetries) {
+        throw new Error('Failed to upload photo after multiple attempts');
       }
+
+      // Wait for a short delay before retrying
+      await new Promise((resolve) => setTimeout(resolve, 2000));
     }
   }
   throw new Error("Upload failed after max retries."); // Shouldn’t reach this, added for TypeScript compliance
