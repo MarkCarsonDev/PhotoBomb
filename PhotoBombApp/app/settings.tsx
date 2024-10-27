@@ -115,7 +115,7 @@ export default function Settings() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={{ flex: 1 }}>
       <Header
         centerComponent={{ text: 'Settings', style: styles.title }}
         leftComponent={
@@ -125,6 +125,7 @@ export default function Settings() {
         }
         backgroundColor="#fff"
       />
+    <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollView}>
         <Text style={styles.sectionTitle}>Authored Photos</Text>
         {loading ? (
@@ -152,6 +153,7 @@ export default function Settings() {
         </View>
       </ScrollView>
     </SafeAreaView>
+    </View>
   );
 }
 

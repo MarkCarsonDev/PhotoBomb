@@ -10,7 +10,7 @@ type AddTrashButtonProps = {
 const AddTrashButton: React.FC<AddTrashButtonProps> = ({ style, onTrashPress }) => {
   return (
     <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onTrashPress}>
-      <AntDesign name="delete" size={50} color="white" />
+      <AntDesign name="delete" size={30} color="white" />
     </TouchableOpacity>
   );
 };

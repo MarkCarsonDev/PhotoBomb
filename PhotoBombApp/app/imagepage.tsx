@@ -152,6 +152,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   button: {
+    
     marginHorizontal: 10,
   },
 });
