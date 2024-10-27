@@ -18,8 +18,8 @@ export const uploadPhoto = async (userId: string, photoBlob: Blob, isVerificatio
     try {
       // Generate a unique filename
       const timestamp = Date.now();
-      const filePath = `users/${userId}/photos/${timestamp}.jpg`;
-      const storageRef = ref(storage, filePath);
+      const file_path = `users/${userId}/photos/${timestamp}.jpg`;
+      const storageRef = ref(storage, file_path);
 
       // Upload the photo to Firebase Storage
       await uploadBytes(storageRef, photoBlob);
@@ -31,8 +31,8 @@ export const uploadPhoto = async (userId: string, photoBlob: Blob, isVerificatio
       const photosCollectionRef = collection(db, 'photos');
       await addDoc(photosCollectionRef, {
         author_uid: userId,
-        embeddings: [], // To be implemented as needed
-        filepath: downloadURL,
+        face_embeddings: [], // To be implemented as needed
+        file_path: downloadURL,
         is_verification_photo: isVerification,
         created_at: serverTimestamp(),
       });

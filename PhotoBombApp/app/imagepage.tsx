@@ -27,11 +27,11 @@ export default function ImagePage(): JSX.Element {
 
           if (docSnapshot.exists()) {
             const data = docSnapshot.data();
-            if (data.filepath) {
-              setImageUri(data.filepath);
-              console.log("Image URI found:", data.filepath);
+            if (data.file_path) {
+              setImageUri(data.file_path);
+              console.log("Image URI found:", data.file_path);
             } else {
-              console.warn("No filepath found in document.");
+              console.warn("No file_path found in document.");
             }
           } else {
             console.warn("No document found with this ID.");

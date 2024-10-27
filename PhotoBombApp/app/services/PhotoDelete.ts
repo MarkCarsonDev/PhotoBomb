@@ -20,7 +20,7 @@ export const deletePhoto = async (photoId: string): Promise<void> => {
     }
 
     const photoData = photoDoc.data();
-    const filePath = photoData?.filepath;
+    const file_path = photoData?.file_path;
 
     // Batch operation to delete references in user_photos and photos collections
     const batch = writeBatch(db);
@@ -45,10 +45,10 @@ export const deletePhoto = async (photoId: string): Promise<void> => {
     console.log(`References to photo ${photoId} deleted successfully from Firestore.`);
 
     // 3. Delete the actual photo file from Firebase Storage if it exists
-    if (filePath) {
-      const storageRef = ref(storage, filePath);
+    if (file_path) {
+      const storageRef = ref(storage, file_path);
       await deleteObject(storageRef);
-      console.log(`Photo file ${filePath} deleted successfully from Storage.`);
+      console.log(`Photo file ${file_path} deleted successfully from Storage.`);
     } else {
       console.warn(`File path for photo ${photoId} is missing. Skipping storage deletion.`);
     }

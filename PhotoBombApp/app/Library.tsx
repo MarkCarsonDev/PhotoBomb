@@ -34,8 +34,9 @@ export default function Library() {
         const querySnapshot = await getDocs(q);
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.filepath) {
-            userPhotos.push({ uri: data.filepath, key: doc.id });
+          if (data.file_path) {
+            userPhotos.push({ uri: data.file_path, key: doc.id });
+            console.log("Photo found:", data.file_path);
           }
         });
         setPhotos(userPhotos);
