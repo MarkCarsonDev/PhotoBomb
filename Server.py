@@ -176,7 +176,7 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict:
 
     return people_clusters
 
-def get_face_encodings(folder_path: str) -> (List[np.ndarray], List[str]):
+def get_face_encodings(folder_path: str) -> tuple[[np.ndarray], List[str]]:
     """
     Retrieves face encodings from images in the specified folder.
 
