@@ -1,75 +1,88 @@
 // app/index.tsx
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../components/AuthContext';
-import { ActivityIndicator, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
-import { doc, getDocs, query, where, collection } from 'firebase/firestore';
+import { getDocs, query, where, collection } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
 
 export default function Index() {
   const router = useRouter();
   const { user, loading } = useAuth();
-
-  // Function to check if the user is verified
-  const checkVerificationStatus = async () => {
-    if (user) {
-      try {
-        const photosRef = collection(db, 'photos');
-        const q = query(
-          photosRef,
-          where('author_uid', '==', user.uid),
-          where('is_verification_photo', '==', true)
-        );
-        const querySnapshot = await getDocs(q);
-        console.log(`Found ${querySnapshot.size} verification photos for user ${user.uid}`);
-        if (!querySnapshot.empty && querySnapshot.size != 0) {
-          // User is verified
-          router.replace('/Library');
-        } else {
-          // User is not verified
-          router.replace('/VerificationPage');
-        }
-      } catch (error) {
-        console.error('Error checking verification status:', error);
-        // Handle error accordingly, possibly redirect to an error page or show a message
-      }
-    } else {
-      // User is not authenticated
-      router.replace('/LoginSignup');
-    }
-  };
+  const [isReady, setIsReady] = useState(false);
+  const [timeoutReached, setTimeoutReached] = useState(false);
 
   useEffect(() => {
-    if (!loading) {
-      if (user) {
-        checkVerificationStatus();
-      } else {
-        router.replace('/LoginSignup');
-      }
-    }
-  }, [user, loading]);
+    console.log('Index Component Mounted');
+    console.log(`User loading status: ${loading}`);
+    console.log(`User authentication status: ${user ? 'Authenticated' : 'Not Authenticated'}`);
 
-  return (
-    <TouchableOpacity
-      style={styles.container}
-      onPress={() => {
-        if (!loading) {
-          if (user) {
-            checkVerificationStatus();
+    const checkVerificationStatus = async () => {
+      if (user) {
+        console.log(`Checking verification status for user: ${user.uid}`);
+        try {
+          const photosRef = collection(db, 'photos');
+          const q = query(
+            photosRef,
+            where('author_uid', '==', user.uid),
+            where('is_verification_photo', '==', true)
+          );
+          const querySnapshot = await getDocs(q);
+
+          console.log(`Verification photos found: ${querySnapshot.size}`);
+
+          if (!querySnapshot.empty) {
+            // User is verified, navigate to Library
+            console.log('User verified. Navigating to /Library');
+            router.replace('/Library');
           } else {
-            router.replace('/LoginSignup');
+            // User is not verified, navigate to VerificationPage
+            console.log('User not verified. Navigating to /VerificationPage');
+            router.replace('/VerificationPage');
           }
+        } catch (error) {
+          console.error('Error checking verification status:', error);
+        } finally {
+          setIsReady(true);
         }
-      }}
-      activeOpacity={1}
-    >
-      {loading ? (
+      } else {
+        // User is not authenticated, navigate to LoginSignup
+        console.log('User not authenticated. Navigating to /LoginSignup');
+        router.replace('/LoginSignup');
+        setIsReady(true);
+      }
+    };
+
+    const timeout = setTimeout(() => {
+      console.warn('Timeout reached. Redirecting to LoginSignup.');
+      setTimeoutReached(true);
+      setIsReady(true);
+      router.replace('/LoginSignup');
+    }, 5000);
+
+    if (!loading && !isReady && !timeoutReached) {
+      console.log('Starting verification check');
+      checkVerificationStatus();
+    }
+
+    return () => {
+      console.log('Clearing timeout');
+      clearTimeout(timeout);
+    };
+  }, [loading, user, isReady, timeoutReached]);
+
+  // Display loading screen while the app is verifying the user's status
+  if (loading || !isReady) {
+    return (
+      <View style={styles.container}>
         <ActivityIndicator size="large" color="#0000ff" />
-      ) : (
-        <Text style={styles.getStartedText}>Get Started</Text>
-      )}
-    </TouchableOpacity>
-  );
+        <Text style={styles.loadingText}>Find yourself.</Text>
+      </View>
+    );
+  }
+
+  // This should never render since navigation occurs before this point
+  return null;
 }
 
 const styles = StyleSheet.create({
@@ -79,8 +92,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  getStartedText: {
-    fontSize: 24,
+  loadingText: {
+    marginTop: 20,
+    fontSize: 18,
     color: '#000',
   },
 });

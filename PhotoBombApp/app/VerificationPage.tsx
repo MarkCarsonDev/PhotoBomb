@@ -121,7 +121,8 @@ export default function VerificationPage() {
           onCameraReady={() => setIsCameraReady(true)}
         >
           <View style={styles.cameraButtonContainer}>
-            <Button title="Take Selfie" onPress={handleTakePhoto} disabled={!isCameraReady} />
+            
+            <Button title={isCameraReady ? "Take Selfie" : "Camera Uninitialized"} onPress={handleTakePhoto} disabled={!isCameraReady} />
           </View>
         </CameraView>
       ) : (
