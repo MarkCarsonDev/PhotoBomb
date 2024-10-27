@@ -11,6 +11,9 @@ import numpy as np
 from face_recognition import api
 from sklearn.cluster import DBSCAN
 from collections import defaultdict
+from photo_loader import load_all_photos
+from userclass import User
+from photo import Photo
 
 # Replace with the path to your Firebase service account key
 cred = credentials.Certificate("./firebaseConfig.json")
