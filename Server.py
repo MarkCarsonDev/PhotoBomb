@@ -34,7 +34,17 @@ def initialize_firebase():
         logging.error(f"Failed to initialize Firebase Admin SDK: {e}")
         raise
 
-def create_people_cluster(photo_list: List[Photo]) -> Dict:
+def create_people_cluster(photo_list: List[Photo]) -> Dict[int, List[str]]:
+    """
+    Clusters face encodings from a list of Photo objects and associates clusters with users based on account photos.
+
+    Args:
+        photo_list (List[Photo]): List of Photo instances to cluster.
+
+    Returns:
+        Dict[int, List[str]]: A dictionary where keys are user `author_id`s (from account photos in clusters)
+                               and values are lists of photo IDs associated with each user.
+    """
     all_encodings = []
     photo_references = []
 
@@ -49,24 +59,34 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict:
     all_encodings = np.array(all_encodings)
 
     try:
-        dbscan = DBSCAN(eps=0.5, min_samples=1, metric="euclidean").fit(all_encodings)
+        dbscan = DBSCAN(eps=0.55, min_samples=1, metric="euclidean").fit(all_encodings)
         labels = dbscan.labels_
         logging.info("DBSCAN clustering completed successfully.")
     except Exception as e:
         logging.error(f"DBSCAN clustering failed: {e}")
         return {}
 
-    people_clusters = defaultdict(list)
+    # Group photos by cluster labels
+    clusters = defaultdict(list)
     for idx, label in enumerate(labels):
-        if label == -1:
-            continue  # Ignore noise points
+        if label != -1:  # Skip noise points
+            clusters[label].append(photo_references[idx])
 
-        photo = photo_references[idx]
+    # Create a dictionary to hold clusters associated with user `author_id`s
+    people_clusters = defaultdict(list)
+    for label, cluster_photos in clusters.items():
+        # Find an account photo in the cluster with a valid author_id
+        cluster_key = None
+        for photo in cluster_photos:
+            if photo.is_account_photo and photo.author_id:
+                cluster_key = photo.author_id  # Ensure author_id is an integer
+                break  # Use the first account photo with an author_id as the key for the cluster
         
-        # Only add clusters associated with an account photo and valid `author_id`
-        if photo.is_account_photo and photo.author_id:
-            cluster_key = photo.author_id
-            people_clusters[cluster_key].append(photo.file_path)
+        # If an account photo with author_id was found, add all photo IDs in the cluster to `people_clusters`
+        if cluster_key is not None:
+            for photo in cluster_photos:
+                people_clusters[cluster_key].append(photo.photo_id)
+
     return people_clusters
 
 
@@ -101,46 +121,6 @@ def send_predicted_photos_to_users(db: firestore.Client, people_clusters: Dict):
             'predicted_photos': list(predicted_photo_ids)
         })
         logging.info(f"Updated `predicted_photos` for user {user_id} with {len(predicted_photo_ids)} photos.")
-
-
-
-def add_face_embedding(photo_id: str, db: firestore.Client):
-    doc_ref = db.collection('photos').document(photo_id)
-    doc = doc_ref.get()
-
-def send_predicted_photos_to_users(db: firestore.Client, people_clusters: Dict):
-    # Fetch all user documents from Firestore
-    users_ref = db.collection('users')
-    users_docs = users_ref.stream()
-    
-    for user_doc in users_docs:
-        user_id = user_doc.id
-        logging.info(f"Processing user {user_id}.")
-
-        # Locate the corresponding document in `user_photos` using the user_id
-        user_photos_ref = db.collection('user_photos').document(user_id)
-        user_photos_doc = user_photos_ref.get()
-
-        if not user_photos_doc.exists:
-            logging.warning(f"No user_photos document found for user {user_id}. Skipping.")
-            continue
-
-        # Retrieve the confirmed photos for the user
-        confirmed_photo_ids = set(user_photos_doc.to_dict().get('confirmed_photos', []))  # Set of confirmed photo IDs
-
-        # Retrieve clustered photo IDs for the user from `people_clusters`
-        clustered_photo_ids = set(people_clusters.get(user_id, []))  # Set of clustered photo IDs for this user
-        
-        # Calculate intersection of confirmed and clustered photos to get predicted photos
-        predicted_photo_ids = clustered_photo_ids - confirmed_photo_ids.intersection(clustered_photo_ids)
-
-        # Update the `predicted_photos` field in `user_photos`
-        user_photos_ref.update({
-            'predicted_photos': list(predicted_photo_ids)
-        })
-        logging.info(f"Updated `predicted_photos` for user {user_id} with {len(predicted_photo_ids)} photos.")
-
-
 
 def add_face_embedding(photo_id: str, db: firestore.Client):
     doc_ref = db.collection('photos').document(photo_id)
