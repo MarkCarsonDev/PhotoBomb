@@ -1,15 +1,43 @@
 // app/Library.tsx
-import React, { useState } from 'react';
-import { View, StyleSheet, Image, ScrollView, StatusBar } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, StyleSheet, Image, ScrollView, StatusBar, Alert } from 'react-native';
 import { Header } from 'react-native-elements';
 import { Link } from 'expo-router';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import * as ImagePicker from 'expo-image-picker'; // Import expo-image-picker
+import * as ImagePicker from 'expo-image-picker';
+import { uploadPhoto } from './services/PhotoService';
+import { useAuth } from '../components/AuthContext';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 import AddPlusButton from '@/components/AddPlusButton';
 import AddCameraButton from '@/components/AddCameraButton';
 
 export default function Library() {
-  const [image, setImage] = useState<string | null>(null);
+  const { user } = useAuth();
+  const [photos, setPhotos] = useState<string[]>([]);
+
+  // Load user's photos from Firestore
+  useEffect(() => {
+    const loadPhotos = async () => {
+      if (user) {
+        try {
+          const userPhotos: string[] = [];
+          const q = query(collection(db, 'photos'), where('author_uid', '==', user.uid));
+          const querySnapshot = await getDocs(q);
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            if (data.filepath) {
+              userPhotos.push(data.filepath);
+            }
+          });
+          setPhotos(userPhotos);
+        } catch (error) {
+          console.error("Error fetching user photos:", error);
+        }
+      }
+    };
+    loadPhotos();
+  }, [user]);
 
   // Function to pick an image from the gallery
   const pickImage = async () => {
@@ -26,7 +54,13 @@ export default function Library() {
       });
 
       if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-        setImage(pickerResult.assets[0].uri || null);
+        const uri = pickerResult.assets[0].uri;
+        if (uri && user) {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          await uploadPhoto(user.uid, blob, false);
+          setPhotos((prev) => [...prev, uri]); // Update state to show new photo
+        }
       }
     } catch (error) {
       console.warn("Error picking image:", error);
@@ -48,7 +82,13 @@ export default function Library() {
       });
 
       if (!cameraResult.canceled && cameraResult.assets && cameraResult.assets.length > 0) {
-        setImage(cameraResult.assets[0].uri || null);
+        const uri = cameraResult.assets[0].uri;
+        if (uri && user) {
+          const response = await fetch(uri);
+          const blob = await response.blob();
+          await uploadPhoto(user.uid, blob, false);
+          setPhotos((prev) => [...prev, uri]);
+        }
       }
     } catch (error) {
       console.warn("Error opening camera:", error);
@@ -70,11 +110,9 @@ export default function Library() {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <View style={styles.librarycontent}>
-            {image ? (
-              <Image source={{ uri: image }} style={styles.photo} />
-            ) : (
-              <Image source={require('../assets/images/1.jpg')} style={styles.photo} />
-            )}
+            {photos.map((photoUri, index) => (
+              <Image key={index} source={{ uri: photoUri }} style={styles.photo} />
+            ))}
           </View>
         </ScrollView>
       </View>
