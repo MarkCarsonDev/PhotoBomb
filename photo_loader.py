@@ -17,9 +17,8 @@ def load_all_photos_from_firebase() -> List[Photo]:
     
     photo_objects = []
     for doc in all_photo_docs:
-        data = doc.to_dict()
         try:
-            photo = Photo.from_dict(data)
+            photo = Photo.from_dict(doc)
             photo_objects.append(photo)
             logging.info(f"Loaded Photo: {photo.photo_id}, Filename: {photo.metadata.get('file_name', 'N/A')}")
         except Exception as e:
@@ -44,9 +43,8 @@ def load_photos_by_author_from_firebase(author_id: str) -> List[Photo]:
     
     photo_objects = []
     for doc in photo_docs:
-        data = doc.to_dict()
         try:
-            photo = Photo.from_dict(data)
+            photo = Photo.from_dict(doc)
             photo_objects.append(photo)
             logging.info(f"Loaded Photo: {photo.photo_id}, Filename: {photo.metadata.get('file_name', 'N/A')}")
         except Exception as e:
