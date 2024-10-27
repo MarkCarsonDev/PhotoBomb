@@ -1,3 +1,4 @@
+// app/imagepage.tsx
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, Image, StatusBar, ActivityIndicator, Alert, Share } from "react-native";
 import { Header } from 'react-native-elements';
@@ -46,7 +47,6 @@ export default function ImagePage(): JSX.Element {
     fetchImageUri();
   }, [photoId]);
 
-  // Delete the image from Firebase Firestore and Firebase Storage
   const onTrashPress = async () => {
     if (!photoId) return;
     try {
@@ -58,7 +58,6 @@ export default function ImagePage(): JSX.Element {
     }
   };
 
-  // Download the image to device storage
   const onDownloadPress = async () => {
     if (!imageUri) return;
 
@@ -74,7 +73,6 @@ export default function ImagePage(): JSX.Element {
     }
   };
 
-  // Share the image using the device's share dialog
   const onSharePress = async () => {
     if (!imageUri) return;
 
@@ -130,15 +128,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   container: {
-    flex: 7,
-    paddingTop: StatusBar.currentHeight,
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   image: {
-    width: '100%',
-    height: '100%',
+    height: '80%',
+    width: '80%',
     resizeMode: 'contain',
+    marginTop: -100,
   },
   errorText: {
     fontSize: 16,
