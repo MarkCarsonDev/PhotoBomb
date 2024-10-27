@@ -1,11 +1,11 @@
 // app/_layout.tsx
-import React from "react";
-import { Stack, Slot } from "expo-router";
+import React from 'react';
+import { Stack, Slot } from 'expo-router';
 import { AuthProvider, useAuth } from '../components/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
 
 function RootLayout() {
-  const { user, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (

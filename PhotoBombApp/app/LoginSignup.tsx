@@ -4,6 +4,8 @@ import { View, StyleSheet, TextInput, Button, Text, TouchableOpacity, Alert } fr
 import { useRouter } from 'expo-router';
 import { auth } from '../firebaseConfig';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../firebaseConfig';
 
 export default function LoginSignup() {
   const [isLogin, setIsLogin] = useState<boolean>(true);
@@ -11,10 +13,37 @@ export default function LoginSignup() {
   const [password, setPassword] = useState<string>('');
   const router = useRouter();
 
+  // Function to check verification status
+  const checkVerificationStatus = async (uid: string) => {
+    try {
+      const photosRef = collection(db, 'photos');
+      const q = query(
+        photosRef,
+        where('author_uid', '==', uid),
+        where('is_verification_photo', '==', true)
+      );
+      const querySnapshot = await getDocs(q);
+
+      if (!querySnapshot.empty) {
+        // User is verified, navigate to Library
+        router.replace('/Library');
+      } else {
+        // User is not verified, navigate to VerificationPage
+        router.replace('/VerificationPage');
+      }
+    } catch (error) {
+      console.error('Error checking verification status:', error);
+      Alert.alert('Error', 'An error occurred while verifying your account.');
+    }
+  };
+
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
-      router.replace('/Library'); // Navigate to main screen upon successful login
+      const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+      if (user) {
+        await checkVerificationStatus(user.uid);
+      }
     } catch (error: any) {
       Alert.alert('Login Error', error.message);
     }
@@ -22,8 +51,11 @@ export default function LoginSignup() {
 
   const handleSignup = async () => {
     try {
-      await createUserWithEmailAndPassword(auth, email.trim(), password);
-      router.replace('/Library'); // Navigate to main screen upon successful signup
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+      if (user) {
+        await checkVerificationStatus(user.uid);
+      }
     } catch (error: any) {
       Alert.alert('Signup Error', error.message);
     }
