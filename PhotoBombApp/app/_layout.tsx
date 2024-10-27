@@ -1,8 +1,12 @@
 // app/_layout.tsx
 import React from 'react';
-import { Stack, Slot } from 'expo-router';
+import { Stack } from 'expo-router';
 import { AuthProvider, useAuth } from '../components/AuthContext';
 import { ActivityIndicator, View } from 'react-native';
+
+import { LogBox } from 'react-native';
+LogBox.ignoreLogs(['Warning: ...']); // Ignore log notification by message
+LogBox.ignoreAllLogs();//Ignore all log notifications
 
 function RootLayout() {
   const { loading } = useAuth();
@@ -20,9 +24,7 @@ function RootLayout() {
       screenOptions={{
         headerShown: false,
       }}
-    >
-      <Slot />
-    </Stack>
+    />
   );
 }
 
