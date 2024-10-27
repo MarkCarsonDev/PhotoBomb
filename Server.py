@@ -34,58 +34,6 @@ def initialize_firebase():
         logging.error(f"Failed to initialize Firebase Admin SDK: {e}")
         raise
 
-def add_user_face_embedding(user: User, db: firestore.Client, storage_client: storage.Client):
-    # Query `photos` collection to find the profile photo for this user
-    photos_ref = db.collection('photos')
-    query = photos_ref.where('author_id', '==', user.uid).where('is_account_photo', '==', True)
-    profile_photo_docs = query.stream()
-    profile_photos = [Photo.from_dict(doc) for doc in profile_photo_docs]
-    
-    # Check if any profile photos are found
-    if not profile_photos:
-        logging.warning(f"User {user.uid} has no profile photo to compute face embedding.")
-        return
-
-    # Use the first profile photo found
-    profile_photo = profile_photos[0]
-    
-    # Check if face encodings already exist in the photo
-    if profile_photo.face_encodings:
-        user_face_embedding = profile_photo.face_encodings[0]
-    else:
-        # Load the photo file from Firebase Storage
-        firebase_file_path = profile_photo.file_path
-        bucket = storage_client.bucket("photobomb-fc123.appspot.com")
-        blob = bucket.blob(firebase_file_path)
-        
-        # Download the photo to a local temporary file
-        local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
-        blob.download_to_filename(local_path)
-
-        # Process the image to compute face encodings
-        image = face_recognition.load_image_file(local_path)
-        face_encodings = face_recognition.face_encodings(image)
-        
-        if not face_encodings:
-            logging.warning(f"No faces found in profile photo {profile_photo.photo_id} for user {user.uid}.")
-            return
-
-        # Use the first face encoding as the user's primary face embedding
-        user_face_embedding = face_encodings[0]
-
-    # Serialize the face embedding with pickle and base64 encoding
-    user_face_embedding_serialized = base64.b64encode(pickle.dumps(user_face_embedding)).decode('utf-8')
-
-    # Ensure padding in case base64 encoding needs it
-    padding_needed = len(user_face_embedding_serialized) % 4
-    if padding_needed != 0:
-        user_face_embedding_serialized += "=" * (4 - padding_needed)
-
-    # Update the user's document with 'face_embedding'
-    user_doc_ref = db.collection('users').document(user.uid)
-    user_doc_ref.update({'face_embedding': user_face_embedding_serialized})
-    logging.info(f"Updated user {user.uid} with serialized primary face embedding.")
-
 def create_people_cluster(photo_list: List[Photo]) -> Dict:
     all_encodings = []
     photo_references = []
@@ -110,15 +58,52 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict:
 
     people_clusters = defaultdict(list)
     for idx, label in enumerate(labels):
-        if label != -1:  # Ignore noise points if any
-            photo = photo_references[idx]
-            # Use author_id as cluster key if the photo is an account/profile photo
-            if photo.is_account_photo and photo.author_id:
-                cluster_key = photo.author_id
-            else:
-                cluster_key = f"Cluster_{label}"
+        if label == -1:
+            continue  # Ignore noise points
+
+        photo = photo_references[idx]
+        
+        # Only add clusters associated with an account photo and valid `author_id`
+        if photo.is_account_photo and photo.author_id:
+            cluster_key = photo.author_id
             people_clusters[cluster_key].append(photo.file_path)
     return people_clusters
+
+
+def send_predicted_photos_to_users(db: firestore.Client, people_clusters: Dict):
+    # Fetch all user documents from Firestore
+    users_ref = db.collection('users')
+    users_docs = users_ref.stream()
+    
+    for user_doc in users_docs:
+        user_id = user_doc.id
+        logging.info(f"Processing user {user_id}.")
+
+        # Locate the corresponding document in `user_photos` using the user_id
+        user_photos_ref = db.collection('user_photos').document(user_id)
+        user_photos_doc = user_photos_ref.get()
+
+        if not user_photos_doc.exists:
+            logging.warning(f"No user_photos document found for user {user_id}. Skipping.")
+            continue
+
+        # Retrieve the confirmed photos for the user
+        confirmed_photo_ids = set(user_photos_doc.to_dict().get('confirmed_photos', []))  # Set of confirmed photo IDs
+
+        # Retrieve clustered photo IDs for the user from `people_clusters`
+        clustered_photo_ids = set(people_clusters.get(user_id, []))  # Set of clustered photo IDs for this user
+        
+        # Calculate intersection of confirmed and clustered photos to get predicted photos
+        predicted_photo_ids = clustered_photo_ids - confirmed_photo_ids.intersection(clustered_photo_ids)
+
+        # Update the `predicted_photos` field in `user_photos`
+        user_photos_ref.update({
+            'predicted_photos': list(predicted_photo_ids)
+        })
+        logging.info(f"Updated `predicted_photos` for user {user_id} with {len(predicted_photo_ids)} photos.")
+
+
+
 def add_face_embedding(photo_id: str, db: firestore.Client):
     doc_ref = db.collection('photos').document(photo_id)
     doc = doc_ref.get()
@@ -174,7 +159,6 @@ def add_face_embedding(photo_id: str, db: firestore.Client):
     local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
     blob.download_to_filename(local_path)
         
-        
     image = face_recognition.load_image_file(local_path)
     # Compute face encodings
     face_encodings = face_recognition.face_encodings(image)
@@ -186,6 +170,54 @@ def add_face_embedding(photo_id: str, db: firestore.Client):
         face_embeddings_serialized += "=" * (4 - padding_needed)
     doc_ref.update({'face_embeddings': face_embeddings_serialized})
     logging.info(f"Replaced face embeddings for photo {photo_id}.")
+
+def add_user_face_embedding(user: User, db: firestore.Client):
+    # Query `photos` collection to find the profile photo for this user
+    photos_ref = db.collection('photos')
+    query = photos_ref.where('author_id', '==', user.uid).where('is_account_photo', '==', True)
+    profile_photo_docs = query.stream()
+    profile_photos = [Photo.from_dict(doc) for doc in profile_photo_docs]
+    
+    # Check if any profile photos are found
+    if not profile_photos:
+        logging.warning(f"User {user.uid} has no profile photo to compute face embedding.")
+        return
+
+    # Use the first profile photo found
+    profile_photo = profile_photos[0]
+    
+    firebase_file_path = profile_photo.file_path
+    bucket = storage.bucket("photobomb-fc123.appspot.com")
+    blob = bucket.blob(firebase_file_path)
+    
+    # Download the photo to a local temporary file
+    local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
+    blob.download_to_filename(local_path)
+
+    # Process the image to compute face encodings
+    image = face_recognition.load_image_file(local_path)
+    face_encodings = face_recognition.face_encodings(image)
+    
+    if not face_encodings:
+        logging.warning(f"No faces found in profile photo {profile_photo.photo_id} for user {user.uid}.")
+        return
+
+        # Use the first face encoding as the user's primary face embedding
+        user_face_embedding = face_encodings[0]
+
+    # Serialize the face embedding with pickle and base64 encoding
+    user_face_embedding_serialized = base64.b64encode(pickle.dumps(user_face_embedding)).decode('utf-8')
+
+    # Ensure padding in case base64 encoding needs it
+    padding_needed = len(user_face_embedding_serialized) % 4
+    if padding_needed != 0:
+        user_face_embedding_serialized += "=" * (4 - padding_needed)
+
+    # Update the user's document with 'face_embedding'
+    user_doc_ref = db.collection('users').document(user.uid)
+    user_doc_ref.update({'face_embedding': user_face_embedding_serialized})
+    logging.info(f"Updated user {user.uid} with serialized primary face embedding.")
+
     #face_embeddings = pickle.loads(base64.b64decode(face_embeddings_serialized))
 
 # def get_face_encodings(folder_path: str) -> tuple[List[np.ndarray], List[str]]: # local version
@@ -250,9 +282,9 @@ def main():
 
     doc_ref = db.collection('photos').document("KgU1WfF5gpori0dtf61C")
     doc = doc_ref.get()
-    print(doc.id)
-    data = doc.to_dict()
-    print(data)
+    # print(doc.id)
+    # data = doc.to_dict()
+    # print(data)
 
     
     # Example: Fetch and log photos for each user
@@ -279,11 +311,9 @@ def main():
 
     
 
-    
-    # # Example: Fetch and log photos for each user
-    # # Load all User objects from Firestore
-    # user_list = load_all_users_from_firebase()
-    # logging.info(f"Retrieved {len(user_list)} users from Firestore.")
+    # Perform clustering on all photo encodings
+    people_clusters = create_people_cluster(photo_list)
+    logging.info(f"Created {len(people_clusters)} people clusters.")
 
      # Display clusters
     for cluster_key, photo_paths in people_clusters.items():
