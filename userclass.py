@@ -6,9 +6,8 @@ from photo_loader import load_all_photos
 from photo import Photo
 
 class User:
-    def __init__(self, username: str, face_embedding: np.ndarray, confirmed_photos: Dict[int, np.ndarray] = None, predicted_photos: Dict[int, np.ndarray] = None, user_id: int = 0
+    def __init__(self, face_embedding: np.ndarray, confirmed_photos: Dict[int, np.ndarray] = None, predicted_photos: Dict[int, np.ndarray] = None, user_id: int = 0
     ):
-        self.username = username
         self.face_embedding = face_embedding
         self.confirmed_photos = confirmed_photos if confirmed_photos is not None else {}
         self.predicted_photos = predicted_photos if predicted_photos is not None else {}
@@ -48,7 +47,6 @@ class User:
     
     def to_dict(self) -> dict:
         return {
-            'username': self.username,
             'face_embedding': self.face_embedding.tolist(),
             'confirmed_photos': {pid: enc.tolist() for pid, enc in self.confirmed_photos.items()},
             'predicted_photos': {pid: enc.tolist() for pid, enc in self.predicted_photos.items()},
