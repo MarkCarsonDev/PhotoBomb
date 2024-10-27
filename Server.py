@@ -4,7 +4,7 @@
 # import photo
 
 import firebase_admin
-from firebase_admin import credentials, firestore
+from firebase_admin import credentials, firestore, storage
 
 import os
 import numpy as np
@@ -21,13 +21,19 @@ firebase_admin.initialize_app(cred)
 
 # Initialize Firestore client
 db = firestore.client()
+bucket = storage.bucket()
 
 user_docs = db.collection('users').stream()
 
-all_photo_docs = db.collection('photos').stream()
-for doc in all_photo_docs:
+photo_docs = db.collection('photos').stream()
+photo_list = []
+for doc in photo_docs:
+
+    photoclass = Photo()
 
     print(f'{doc.id} => {doc.to_dict()}')
+
+
 
 def create_people_cluster(photo_list):
     all_encodings = []
@@ -52,7 +58,7 @@ def create_people_cluster(photo_list):
             else:
                 people_clusters[label].append(photo.file_path)
     return people_clusters
-    
+    print( )
     #create clusters where each one is a different person
     # there will be list of users
     # There will be list of photos
