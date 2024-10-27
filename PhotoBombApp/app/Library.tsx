@@ -3,14 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, Image, ScrollView, StatusBar, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Header } from 'react-native-elements';
 import { Link, useRouter } from 'expo-router';
-import AntDesign from '@expo/vector-icons/AntDesign';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadPhoto } from './services/PhotoService';
 import { useAuth } from '../components/AuthContext';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../firebaseConfig';
-import AddPlusButton from '@/components/AddPlusButton';
-import AddCameraButton from '@/components/AddCameraButton';
+import IconButton from '@/components/IconButton'; // Import the new IconButton component
+import { AntDesign, Feather } from '@expo/vector-icons';
+
 
 type PhotoItem = { uri: string; key: string };
 
@@ -159,7 +159,7 @@ export default function Library() {
         centerComponent={{ text: 'Library', style: styles.title }}
         rightComponent={
           <Link push href="/settings">
-            <AntDesign name="user" size={24} color="#000" />
+            <Feather name="user" size={42} color="#2c2c2c" />
           </Link>
         }
         backgroundColor="#fff"
@@ -179,8 +179,8 @@ export default function Library() {
       </View>
 
       <View style={styles.buttonContainer}>
-        <AddPlusButton style={styles.customButton} onAddPress={pickImages} />
-        <AddCameraButton style={styles.customButton} onPress={openCamera} />
+        <IconButton icon="file-plus" size={32} color="#fff" onPress={pickImages} wide={true} widthAmount={60} />
+        <IconButton icon="camera" size={32} color="#fff" onPress={openCamera} />
       </View>
     </View>
   );
@@ -220,15 +220,6 @@ const styles = StyleSheet.create({
     width: '100%',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingHorizontal: 30,
-  },
-  customButton: {
-    backgroundColor: '#FF7E70',
-    height: 60,
-    width: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 5,
+    paddingHorizontal: 60,
   },
 });
