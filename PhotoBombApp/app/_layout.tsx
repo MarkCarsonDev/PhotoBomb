@@ -1,20 +1,35 @@
-import { Stack } from "expo-router";
-import { NavigationContainer } from '@react-navigation/native';
-import { Pressable, View } from 'react-native';
-import AntDesign from '@expo/vector-icons/AntDesign';
-import { Tabs, Link } from 'expo-router';
+// app/_layout.tsx
+import React from "react";
+import { Stack, Slot } from "expo-router";
+import { AuthProvider, useAuth } from '../components/AuthContext';
+import { ActivityIndicator, View } from 'react-native';
 
+function RootLayout() {
+  const { user, loading } = useAuth();
 
+  if (loading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#0000ff" />
+      </View>
+    );
+  }
 
-
-export default function Layout() {
   return (
     <Stack
       screenOptions={{
         headerShown: false,
-      }}>
-      <Stack.Screen name = "index" />
-      <Stack.Screen name = "settings" />
-      </Stack>
+      }}
+    >
+      <Slot />
+    </Stack>
+  );
+}
+
+export default function Layout() {
+  return (
+    <AuthProvider>
+      <RootLayout />
+    </AuthProvider>
   );
 }
