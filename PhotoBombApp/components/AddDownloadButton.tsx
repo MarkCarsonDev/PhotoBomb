@@ -4,11 +4,12 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 
 type AddDownloadButtonProps = {
   style?: ViewStyle; // Allow external style overrides
+  onDownloadPress?: () => void; // Optional onPress prop for external handler
 };
 
-const AddDownloadButton: React.FC<AddDownloadButtonProps> = ({ style }) => {
+const AddDownloadButton: React.FC<AddDownloadButtonProps> = ({ style, onDownloadPress }) => {
   return (
-    <TouchableOpacity style={[styles.bottomRoundButton, style]}>
+    <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onDownloadPress}>
       <AntDesign name="download" size={50} color="white" />
     </TouchableOpacity>
   );

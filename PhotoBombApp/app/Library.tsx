@@ -1,8 +1,8 @@
 // app/Library.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { View, StyleSheet, Image, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Image, ScrollView, StatusBar, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { Header } from 'react-native-elements';
-import { Link } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadPhoto } from './services/PhotoService';
@@ -16,15 +16,17 @@ type PhotoItem = { uri: string; key: string };
 
 export default function Library() {
   const { user } = useAuth();
+  const router = useRouter();
   const [photos, setPhotos] = useState<PhotoItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const uploadQueue = useRef<(() => Promise<void>)[]>([]); // Queue for upload functions
-  const isProcessingQueue = useRef(false); // Tracks if queue is processing
+  const uploadQueue = useRef<(() => Promise<void>)[]>([]);
+  const isProcessingQueue = useRef(false);
 
-  // Fetch photos from Firebase and update state
+  // Fetch photos from Firestore
   const fetchPhotos = async () => {
     if (user) {
       try {
+        console.log("Fetching photos for user:", user.uid);
         const userPhotos: PhotoItem[] = [];
         const q = query(collection(db, 'photos'), where('author_uid', '==', user.uid));
         const querySnapshot = await getDocs(q);
@@ -32,9 +34,11 @@ export default function Library() {
           const data = doc.data();
           if (data.filepath) {
             userPhotos.push({ uri: data.filepath, key: doc.id });
+            console.log("Photo found:", data.filepath);
           }
         });
         setPhotos(userPhotos);
+        console.log("Photos successfully loaded:", userPhotos.length);
       } catch (error) {
         console.error("Error fetching user photos:", error);
       }
@@ -42,36 +46,45 @@ export default function Library() {
   };
 
   useEffect(() => {
-    fetchPhotos(); // Initial photo load on component mount
+    fetchPhotos();
   }, [user]);
 
-  // Sequential processing for the upload queue
+  // Process the upload queue sequentially
   const processQueue = async () => {
     if (isProcessingQueue.current || uploadQueue.current.length === 0) return;
     isProcessingQueue.current = true;
 
     while (uploadQueue.current.length > 0) {
       const nextUpload = uploadQueue.current.shift();
-      if (nextUpload) await nextUpload();
+      if (nextUpload) {
+        try {
+          await nextUpload();
+          console.log("Upload completed successfully.");
+        } catch (error) {
+          console.error("Error during queue processing:", error);
+        }
+      }
     }
 
     isProcessingQueue.current = false;
   };
 
-  // Add an image to the upload queue
-  const handleImageUpload = async (uri: string) => {
+  // Handle image upload and add it to the queue
+  const handleImageUpload = (uri: string) => {
     uploadQueue.current.push(async () => {
       if (!user) return;
 
       try {
         setIsUploading(true);
+        console.log("Starting image upload for URI:", uri);
+
         const response = await fetch(uri);
         const blob = await response.blob();
-
-        // Upload photo to Firebase and wait for completion
-        await uploadPhoto(user.uid, blob, false);
         
-        // Refresh the photo list to include the newly uploaded image
+        console.log("Uploading blob to Firebase.");
+        await uploadPhoto(user.uid, blob, false);
+
+        console.log("Image uploaded. Refreshing photo list.");
         await fetchPhotos();
       } catch (error) {
         console.error("Error uploading image:", error);
@@ -80,10 +93,10 @@ export default function Library() {
       }
     });
 
-    processQueue(); // Trigger the queue to process the uploads
+    processQueue(); // Start processing the queue if not already
   };
 
-  // Open image picker and queue selected images for upload
+  // Pick images from the library
   const pickImages = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -99,16 +112,16 @@ export default function Library() {
       });
 
       if (!pickerResult.canceled && pickerResult.assets) {
-        for (const asset of pickerResult.assets) {
+        pickerResult.assets.forEach((asset) => {
           if (asset.uri) handleImageUpload(asset.uri);
-        }
+        });
       }
     } catch (error) {
       console.warn("Error picking images:", error);
     }
   };
 
-  // Open camera, capture images, and queue for upload
+  // Capture image with camera
   const openCamera = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -123,13 +136,21 @@ export default function Library() {
       });
 
       if (!cameraResult.canceled && cameraResult.assets) {
-        for (const asset of cameraResult.assets) {
+        cameraResult.assets.forEach((asset) => {
           if (asset.uri) handleImageUpload(asset.uri);
-        }
+        });
       }
     } catch (error) {
       console.warn("Error opening camera:", error);
     }
+  };
+
+  // Navigate to ImagePage with the photo key (document ID)
+  const handleImagePress = (photoKey: string) => {
+    router.push({
+      pathname: '/imagepage',
+      params: { photoId: photoKey },
+    });
   };
 
   return (
@@ -148,7 +169,9 @@ export default function Library() {
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <View style={styles.librarycontent}>
             {photos.map((photo) => (
-              <Image key={photo.key} source={{ uri: photo.uri }} style={styles.photo} />
+              <TouchableOpacity key={photo.key} onPress={() => handleImagePress(photo.key)}>
+                <Image source={{ uri: photo.uri }} style={styles.photo} />
+              </TouchableOpacity>
             ))}
             {isUploading && <ActivityIndicator size="large" color="#FF7E70" />}
           </View>

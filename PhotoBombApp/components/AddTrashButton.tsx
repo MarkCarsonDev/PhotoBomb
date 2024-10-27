@@ -4,11 +4,12 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 
 type AddTrashButtonProps = {
   style?: ViewStyle; // Allow external style overrides
+  onTrashPress?: () => void; // Optional onPress prop for external handler
 };
 
-const AddTrashButton: React.FC<AddTrashButtonProps> = ({ style }) => {
+const AddTrashButton: React.FC<AddTrashButtonProps> = ({ style, onTrashPress }) => {
   return (
-    <TouchableOpacity style={[styles.bottomRoundButton, style]}>
+    <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onTrashPress}>
       <AntDesign name="delete" size={50} color="white" />
     </TouchableOpacity>
   );

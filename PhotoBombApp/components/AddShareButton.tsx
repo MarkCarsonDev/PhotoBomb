@@ -4,11 +4,12 @@ import AntDesign from '@expo/vector-icons/AntDesign';
 
 type AddShareButtonProps = {
   style?: ViewStyle; // Allow external style overrides
+  onSharePress?: () => void; // Optional onPress prop for external handler
 };
 
-const AddShareButton: React.FC<AddShareButtonProps> = ({ style }) => {
+const AddShareButton: React.FC<AddShareButtonProps> = ({ style, onSharePress }) => {
   return (
-    <TouchableOpacity style={[styles.bottomRoundButton, style]}>
+    <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onSharePress}>
       <AntDesign name="sharealt" size={50} color="white" />
     </TouchableOpacity>
   );
