@@ -23,7 +23,8 @@ class Photo:
         is_verification_photo: bool = False, 
         author_uid: str = None, 
         face_embeddings: List[List[float]] = None, 
-        photo_id: str = None
+        photo_id: str = None,
+        metadata = {}
     ):
         self.photo_id = photo_id #or str(uuid.uuid4())  # Unique identifier for the photo
         self.file_path = file_path
@@ -33,6 +34,7 @@ class Photo:
         self.created_at = created_at or datetime.utcnow().isoformat()
         self.is_verification_photo = is_verification_photo
         self.author_uid = author_uid  # Reference to User UID
+        self.metadata = metadata
         
         if face_embeddings:
             self.face_encodings = [np.array(enc) for enc in face_embeddings]
