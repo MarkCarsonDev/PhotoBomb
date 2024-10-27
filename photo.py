@@ -100,6 +100,16 @@ class Photo:
         except Exception as e:
             logging.error(f"Failed to save encodings for {self.metadata['file_name']}: {e}")
     
+    def to_dict(self) -> dict:
+        """
+        Converts the Photo instance to a dictionary suitable for Firestore.
+        
+        Returns:
+            dict: A dictionary representation of the Photo instance.
+        """
+        return {
+            'face_encodings': [enc.tolist() for enc in self.face_encodings],
+        }
     @staticmethod
     def from_dict(data: dict) -> 'Photo':
         """
