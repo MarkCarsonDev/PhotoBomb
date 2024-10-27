@@ -25,7 +25,7 @@ metadata_list = []
 for photo in photo_objects:
     # Getting metadata of the photo
     for index in range(len(photo.face_encodings)):
-        face_metadata = {'photo_file_name' : photo.metadata['file_name'], 'face_index' : index, 'upload_timestamp' : photo.upload_timestamp}
+        face_metadata = {'photo_file_name' : photo.metadata['file_name'], 'face_index' : index, 'created_at' : photo.created_at}
         metadata_list.append(face_metadata)
     # Getting embeddings of the faces and adding them to the embeddings list
     embeddings.extend(photo.face_encodings)

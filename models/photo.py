@@ -13,16 +13,16 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class Photo:
-    def __init__(self, file_path, upload_timestamp=None, is_account_photo=False, author_id=None):
+    def __init__(self, file_path, created_at=None, is_account_photo=False, author_uid=None):
         self.photo_id = str(uuid.uuid4())  # Unique identifier for the photo
         self.file_path = file_path
         self.image = None
         self.face_locations = []
         self.face_encodings = []
         self.metadata = {}
-        self.upload_timestamp = upload_timestamp or datetime.utcnow().isoformat()
+        self.created_at = created_at or datetime.utcnow().isoformat()
         self.is_account_photo = is_account_photo
-        self.author_id = author_id  # Reference to User UID
+        self.author_uid = author_uid  # Reference to User UID
     
         self.load_image()
         self.process_faces()
@@ -64,9 +64,9 @@ class Photo:
                 'face_locations': self.face_locations,
                 'image_height': self.image.shape[0],
                 'image_width': self.image.shape[1],
-                'upload_timestamp': self.upload_timestamp,
+                'created_at': self.created_at,
                 'is_account_photo': self.is_account_photo,
-                'author_id': self.author_id,
+                'author_uid': self.author_uid,
                 'photo_id': self.photo_id
             }
         else:
@@ -76,9 +76,9 @@ class Photo:
                 'face_locations': [],
                 'image_height': None,
                 'image_width': None,
-                'upload_timestamp': self.upload_timestamp,
+                'created_at': self.created_at,
                 'is_account_photo': self.is_account_photo,
-                'author_id': self.author_id,
+                'author_uid': self.author_uid,
                 'photo_id': self.photo_id
             }
     
@@ -117,20 +117,20 @@ class Photo:
         Returns:
             Photo: An instance of the Photo class.
         """
-        required_fields = ['file_path', 'author_id']
+        required_fields = ['file_path', 'author_uid']
         for field in required_fields:
             if field not in data:
                 raise ValueError(f"Missing required field '{field}' in photo document.")
         
         file_path = data['file_path']
-        upload_timestamp = data.get('upload_timestamp', datetime.utcnow().isoformat())
-        is_account_photo = data.get('IsAccountPhoto', False)
-        author_id = data['author_id']
+        created_at = data.get('created_at', datetime.utcnow().isoformat())
+        is_account_photo = data.get('is_verification_photo', False)
+        author_uid = data['author_uid']
         photo_id = data.get('photo_id', str(uuid.uuid4()))
         face_embeddings = data.get('face_embeddings', [])
         
         # Instantiate Photo without processing (since data is provided)
-        photo = Photo(file_path, upload_timestamp, is_account_photo, author_id)
+        photo = Photo(file_path, created_at, is_account_photo, author_uid)
         photo.photo_id = photo_id
         photo.metadata['face_embeddings'] = face_embeddings
         
@@ -154,7 +154,7 @@ class Photo:
             'photo_id': self.photo_id,
             'file_path': self.file_path,
             'face_embeddings': [emb.tolist() for emb in self.face_encodings],
-            'IsAccountPhoto': self.is_account_photo,
-            'author_id': self.author_id,
-            'upload_timestamp': self.upload_timestamp
+            'is_verification_photo': self.is_account_photo,
+            'author_uid': self.author_uid,
+            'created_at': self.created_at
         }

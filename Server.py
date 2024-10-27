@@ -18,6 +18,7 @@ from photo import Photo
 import logging
 import pickle
 import base64
+import requests
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -42,7 +43,7 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict[int, List[str]]:
         photo_list (List[Photo]): List of Photo instances to cluster.
 
     Returns:
-        Dict[int, List[str]]: A dictionary where keys are user `author_id`s (from account photos in clusters)
+        Dict[int, List[str]]: A dictionary where keys are user `author_uid`s (from account photos in clusters)
                                and values are lists of photo IDs associated with each user.
     """
     all_encodings = []
@@ -72,17 +73,17 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict[int, List[str]]:
         if label != -1:  # Skip noise points
             clusters[label].append(photo_references[idx])
 
-    # Create a dictionary to hold clusters associated with user `author_id`s
+    # Create a dictionary to hold clusters associated with user `author_uid`s
     people_clusters = defaultdict(list)
     for label, cluster_photos in clusters.items():
-        # Find an account photo in the cluster with a valid author_id
+        # Find an account photo in the cluster with a valid author_uid
         cluster_key = None
         for photo in cluster_photos:
-            if photo.is_account_photo and photo.author_id:
-                cluster_key = photo.author_id  # Ensure author_id is an integer
-                break  # Use the first account photo with an author_id as the key for the cluster
+            if photo.is_verification_photo and photo.author_uid:
+                cluster_key = photo.author_uid  # Ensure author_uid is an integer
+                break  # Use the first account photo with an author_uid as the key for the cluster
         
-        # If an account photo with author_id was found, add all photo IDs in the cluster to `people_clusters`
+        # If an account photo with author_uid was found, add all photo IDs in the cluster to `people_clusters`
         if cluster_key is not None:
             for photo in cluster_photos:
                 people_clusters[cluster_key].append(photo.photo_id)
@@ -132,18 +133,28 @@ def add_face_embedding(photo_id: str, db: firestore.Client):
 
     data = doc.to_dict()
 
-    firebase_file_path = data.get('file_path')
-    bucket = storage.bucket("photobomb-fc123.appspot.com")
-    blob = bucket.blob(firebase_file_path)
+    # firebase_file_path = data.get('file_path')
+    # bucket = storage.bucket("photobomb-fc123.appspot.com")
+    # blob = bucket.blob(firebase_file_path)
 
-    local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
-    blob.download_to_filename(local_path)
-        
-    image = face_recognition.load_image_file(local_path)
+    # local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
+    # blob.download_to_filename(local_path)
+
+    firebase_file_path = data.get('file_path')
+    url = firebase_file_path
+    local_data = requests.get(url).content 
+    f = open(f'downloaded_photos\{url[-15:]}.jpg','wb') 
+    f.write(local_data) 
+    f.close() 
+
+    image = face_recognition.load_image_file(f'downloaded_photos\{url[-15:]}.jpg')
     # Compute face encodings
     face_encodings = face_recognition.face_encodings(image)
     face_embeddings = [encoding.tolist() for encoding in face_encodings]
     logging.info(f"Found {len(face_embeddings)} face(s) in photo {photo_id}.")
+    if len(face_embeddings) == 0:
+        doc_ref.update({'face_embeddings': 'faceless'})
+        return
     face_embeddings_serialized = base64.b64encode(pickle.dumps(face_encodings)).decode('utf-8')
     padding_needed = len(face_embeddings_serialized) % 4
     if padding_needed != 0:
@@ -154,8 +165,8 @@ def add_face_embedding(photo_id: str, db: firestore.Client):
 def add_user_face_embedding(uid: str, db: firestore.Client):
     # Query `photos` collection to find the profile photo for this user
     photos_ref = db.collection('photos').stream()
-    # query = photos_ref.where('author_id', '==', user.uid).where('is_account_photo', '==', True)
-    query = filter(lambda doc: doc.to_dict().get('is_account_photo', False) == True and doc.to_dict().get('author_id') == user.uid, )
+    # query = photos_ref.where('author_uid', '==', user.uid).where('is_verification_photo', '==', True)
+    query = filter(lambda doc: doc.to_dict().get('is_verification_photo', False) == True and doc.to_dict().get('author_uid') == uid, photos_ref)
     profile_photo_docs = list(query)
     profile_photos = [Photo.from_dict(doc) for doc in profile_photo_docs]
     
@@ -168,15 +179,22 @@ def add_user_face_embedding(uid: str, db: firestore.Client):
     profile_photo = profile_photos[0]
     
     firebase_file_path = profile_photo.file_path
-    bucket = storage.bucket("photobomb-fc123.appspot.com")
-    blob = bucket.blob(firebase_file_path)
+    # bucket = storage.bucket("photobomb-fc123.appspot.com")
+    # blob = bucket.blob(firebase_file_path)
+    url = firebase_file_path
+
+    local_data = requests.get(url).content 
+    f = open(f'downloaded_photos\{url[-15:]}.jpg','wb') 
+    f.write(local_data) 
+    f.close() 
     
-    # Download the photo to a local temporary file
-    local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
-    blob.download_to_filename(local_path)
+    # # Download the photo to a local temporary file
+    # local_path = os.path.join("downloaded_photos", os.path.basename(firebase_file_path))
+    # blob.download_to_filename(local_path)
 
     # Process the image to compute face encodings
-    image = face_recognition.load_image_file(local_path)
+    image = face_recognition.load_image_file(f'downloaded_photos\{url[-15:]}.jpg')
+
     face_encodings = face_recognition.face_encodings(image)
     
     if not face_encodings:
@@ -184,7 +202,7 @@ def add_user_face_embedding(uid: str, db: firestore.Client):
         return
 
         # Use the first face encoding as the user's primary face embedding
-        user_face_embedding = face_encodings[0]
+    user_face_embedding = face_encodings[0] if face_encodings else ""
 
     # Serialize the face embedding with pickle and base64 encoding
     user_face_embedding_serialized = base64.b64encode(pickle.dumps(user_face_embedding)).decode('utf-8')
@@ -195,50 +213,10 @@ def add_user_face_embedding(uid: str, db: firestore.Client):
         user_face_embedding_serialized += "=" * (4 - padding_needed)
 
     # Update the user's document with 'face_embedding'
-    user_doc_ref = db.collection('users').document(user.uid)
+    user_doc_ref = db.collection('users').document(uid)
     user_doc_ref.update({'face_embedding': user_face_embedding_serialized})
-    logging.info(f"Updated user {user.uid} with serialized primary face embedding.")
+    logging.info(f"Updated user {uid} with serialized primary face embedding.")
 
-    #face_embeddings = pickle.loads(base64.b64decode(face_embeddings_serialized))
-
-# def get_face_encodings(folder_path: str) -> tuple[List[np.ndarray], List[str]]: # local version
-#     """
-#     Retrieves face encodings from images in the specified folder.
-
-#     Args:
-#         folder_path (str): Path to the folder containing images.
-
-#     Returns:
-#         Tuple[List[np.ndarray], List[str]]: A tuple containing a list of face encodings and their corresponding file paths.
-#     """
-#     encodings = []
-#     file_paths = []
-#     supported_formats = ('.png', '.jpg', '.jpeg')
-
-#     if not os.path.exists(folder_path):
-#         logging.warning(f"Folder not found: {folder_path}")
-#         return encodings, file_paths
-
-#     for file_name in os.listdir(folder_path):
-#         if not file_name.lower().endswith(supported_formats):
-#             logging.debug(f"Skipping non-image file: {file_name}")
-#             continue  # Skip non-image files
-
-#         file_path = os.path.join(folder_path, file_name)
-#         try:
-#             image = face_recognition.load_image_file(file_path)
-#             face_encodings = face_recognition.face_encodings(image)
-#             if not face_encodings:
-#                 logging.info(f"No faces found in image: {file_path}")
-#                 continue
-#             for encoding in face_encodings:
-#                 encodings.append(encoding)
-#                 file_paths.append(file_path)  # Associate each encoding with the image path
-#             logging.info(f"Processed image: {file_path} with {len(face_encodings)} face(s).")
-#         except Exception as e:
-#             logging.error(f"Failed to process image {file_path}: {e}")
-
-#     return encodings, file_paths
 
 def main():
     """
