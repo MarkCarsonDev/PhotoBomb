@@ -151,16 +151,17 @@ def add_face_embedding(photo_id: str, db: firestore.Client):
     doc_ref.update({'face_embeddings': face_embeddings_serialized})
     logging.info(f"Replaced face embeddings for photo {photo_id}.")
 
-def add_user_face_embedding(user: User, db: firestore.Client):
+def add_user_face_embedding(uid: str, db: firestore.Client):
     # Query `photos` collection to find the profile photo for this user
-    photos_ref = db.collection('photos')
-    query = photos_ref.where('author_id', '==', user.uid).where('is_account_photo', '==', True)
-    profile_photo_docs = query.stream()
+    photos_ref = db.collection('photos').stream()
+    # query = photos_ref.where('author_id', '==', user.uid).where('is_account_photo', '==', True)
+    query = filter(lambda doc: doc.to_dict().get('is_account_photo', False) == True and doc.to_dict().get('author_id') == user.uid, )
+    profile_photo_docs = list(query)
     profile_photos = [Photo.from_dict(doc) for doc in profile_photo_docs]
     
     # Check if any profile photos are found
     if not profile_photos:
-        logging.warning(f"User {user.uid} has no profile photo to compute face embedding.")
+        logging.warning(f"User {uid} has no profile photo to compute face embedding.")
         return
 
     # Use the first profile photo found
@@ -179,7 +180,7 @@ def add_user_face_embedding(user: User, db: firestore.Client):
     face_encodings = face_recognition.face_encodings(image)
     
     if not face_encodings:
-        logging.warning(f"No faces found in profile photo {profile_photo.photo_id} for user {user.uid}.")
+        logging.warning(f"No faces found in profile photo {profile_photo.photo_id} for user {uid}.")
         return
 
         # Use the first face encoding as the user's primary face embedding
@@ -274,7 +275,7 @@ def main():
     for user in user_list:
         if not hasattr(user, 'face_embedding') or not user.face_embedding:
             logging.info(f"User {user.uid} is missing a face embedding. Adding it now.")
-            add_user_face_embedding(user, db)
+            add_user_face_embedding(user.uid, db)
 
     # for user in user_list:
     #     user_photos = user.get_photo_class_objects()
@@ -288,8 +289,6 @@ def main():
     # Reload photos to include updated face embeddings
     photo_list = load_all_photos_from_firebase()
     logging.info(f"Reloaded {len(photo_list)} photos after adding face embeddings.")
-
-    
 
     # Perform clustering on all photo encodings
     people_clusters = create_people_cluster(photo_list)
