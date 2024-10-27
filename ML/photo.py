@@ -12,6 +12,7 @@ class Photo:
         self.face_encodings = []
         self.metadata = {}
         self.upload_timestamp = upload_timestamp or datetime.utcnow().isoformat()
+        self.face_hash = ''
     
         self.load_image()
         self.process_faces()
