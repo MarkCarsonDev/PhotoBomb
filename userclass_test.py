@@ -51,7 +51,6 @@ for filename in os.listdir(photos_directory):
         face_encodings = face_recognition.face_encodings(image, face_locations)
         photo_id = filename
         for idx, face_encoding in enumerate(face_encodings):
-            # Assign a sequential integer ID to each face
             face_id = face_counter
             face_counter += 1
             photo_embeddings[face_id] = {
@@ -106,3 +105,6 @@ user_data = user.to_dict()
 with open('user_data.json', 'w') as f:
     json.dump(user_data, f)
     print("\nUser data saved to 'user_data.json'.")
+
+
+print(photo_embeddings[1]['face_encoding'])
