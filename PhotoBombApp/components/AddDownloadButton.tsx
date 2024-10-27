@@ -10,7 +10,7 @@ type AddDownloadButtonProps = {
 const AddDownloadButton: React.FC<AddDownloadButtonProps> = ({ style, onDownloadPress }) => {
   return (
     <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onDownloadPress}>
-      <AntDesign name="download" size={50} color="white" />
+      <AntDesign name="download" size={30} color="white" />
     </TouchableOpacity>
   );
 };

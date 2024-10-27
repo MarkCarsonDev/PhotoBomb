@@ -10,7 +10,7 @@ type AddShareButtonProps = {
 const AddShareButton: React.FC<AddShareButtonProps> = ({ style, onSharePress }) => {
   return (
     <TouchableOpacity style={[styles.bottomRoundButton, style]} onPress={onSharePress}>
-      <AntDesign name="sharealt" size={50} color="white" />
+      <AntDesign name="sharealt" size={30} color="white" />
     </TouchableOpacity>
   );
 };
