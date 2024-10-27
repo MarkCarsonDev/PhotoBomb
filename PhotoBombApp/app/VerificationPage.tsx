@@ -37,7 +37,11 @@ export default function VerificationPage() {
     if (cameraRef && isCameraReady) {
       try {
         const photo = await cameraRef.takePictureAsync({ quality: 0.5, base64: false });
-        setCapturedPhoto(photo.uri);
+        if (photo && photo.uri) {
+          setCapturedPhoto(photo.uri);
+        } else {
+          throw new Error('No photo captured.');
+        }
       } catch (error) {
         console.error('Error taking photo:', error);
         Alert.alert('Error', 'An error occurred while taking the photo.');
