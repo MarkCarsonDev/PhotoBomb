@@ -1,6 +1,6 @@
 // app/Library.tsx
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Image, ScrollView, StatusBar, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, StyleSheet, Image, ScrollView, StatusBar, Alert, ActivityIndicator } from 'react-native';
 import { Header } from 'react-native-elements';
 import { Link } from 'expo-router';
 import AntDesign from '@expo/vector-icons/AntDesign';
@@ -12,35 +12,79 @@ import { db } from '../firebaseConfig';
 import AddPlusButton from '@/components/AddPlusButton';
 import AddCameraButton from '@/components/AddCameraButton';
 
+type PhotoItem = { uri: string; key: string };
+
 export default function Library() {
   const { user } = useAuth();
-  const [photos, setPhotos] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<PhotoItem[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const uploadQueue = useRef<(() => Promise<void>)[]>([]); // Queue for upload functions
+  const isProcessingQueue = useRef(false); // Tracks if queue is processing
 
-  // Load user's photos from Firestore
-  useEffect(() => {
-    const loadPhotos = async () => {
-      if (user) {
-        try {
-          const userPhotos: string[] = [];
-          const q = query(collection(db, 'photos'), where('author_uid', '==', user.uid));
-          const querySnapshot = await getDocs(q);
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            if (data.filepath) {
-              userPhotos.push(data.filepath);
-            }
-          });
-          setPhotos(userPhotos);
-        } catch (error) {
-          console.error("Error fetching user photos:", error);
-        }
+  // Fetch photos from Firebase and update state
+  const fetchPhotos = async () => {
+    if (user) {
+      try {
+        const userPhotos: PhotoItem[] = [];
+        const q = query(collection(db, 'photos'), where('author_uid', '==', user.uid));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          if (data.filepath) {
+            userPhotos.push({ uri: data.filepath, key: doc.id });
+          }
+        });
+        setPhotos(userPhotos);
+      } catch (error) {
+        console.error("Error fetching user photos:", error);
       }
-    };
-    loadPhotos();
+    }
+  };
+
+  useEffect(() => {
+    fetchPhotos(); // Initial photo load on component mount
   }, [user]);
 
-  // Function to pick an image from the gallery
-  const pickImage = async () => {
+  // Sequential processing for the upload queue
+  const processQueue = async () => {
+    if (isProcessingQueue.current || uploadQueue.current.length === 0) return;
+    isProcessingQueue.current = true;
+
+    while (uploadQueue.current.length > 0) {
+      const nextUpload = uploadQueue.current.shift();
+      if (nextUpload) await nextUpload();
+    }
+
+    isProcessingQueue.current = false;
+  };
+
+  // Add an image to the upload queue
+  const handleImageUpload = async (uri: string) => {
+    uploadQueue.current.push(async () => {
+      if (!user) return;
+
+      try {
+        setIsUploading(true);
+        const response = await fetch(uri);
+        const blob = await response.blob();
+
+        // Upload photo to Firebase and wait for completion
+        await uploadPhoto(user.uid, blob, false);
+        
+        // Refresh the photo list to include the newly uploaded image
+        await fetchPhotos();
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      } finally {
+        setIsUploading(false);
+      }
+    });
+
+    processQueue(); // Trigger the queue to process the uploads
+  };
+
+  // Open image picker and queue selected images for upload
+  const pickImages = async () => {
     try {
       const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!permissionResult.granted) {
@@ -50,24 +94,21 @@ export default function Library() {
 
       const pickerResult = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: true,
         quality: 1,
       });
 
-      if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
-        const uri = pickerResult.assets[0].uri;
-        if (uri && user) {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          await uploadPhoto(user.uid, blob, false);
-          setPhotos((prev) => [...prev, uri]); // Update state to show new photo
+      if (!pickerResult.canceled && pickerResult.assets) {
+        for (const asset of pickerResult.assets) {
+          if (asset.uri) handleImageUpload(asset.uri);
         }
       }
     } catch (error) {
-      console.warn("Error picking image:", error);
+      console.warn("Error picking images:", error);
     }
   };
 
-  // Function to capture an image using the camera
+  // Open camera, capture images, and queue for upload
   const openCamera = async () => {
     try {
       const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
@@ -81,13 +122,9 @@ export default function Library() {
         quality: 1,
       });
 
-      if (!cameraResult.canceled && cameraResult.assets && cameraResult.assets.length > 0) {
-        const uri = cameraResult.assets[0].uri;
-        if (uri && user) {
-          const response = await fetch(uri);
-          const blob = await response.blob();
-          await uploadPhoto(user.uid, blob, false);
-          setPhotos((prev) => [...prev, uri]);
+      if (!cameraResult.canceled && cameraResult.assets) {
+        for (const asset of cameraResult.assets) {
+          if (asset.uri) handleImageUpload(asset.uri);
         }
       }
     } catch (error) {
@@ -110,15 +147,16 @@ export default function Library() {
       <View style={styles.container}>
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <View style={styles.librarycontent}>
-            {photos.map((photoUri, index) => (
-              <Image key={index} source={{ uri: photoUri }} style={styles.photo} />
+            {photos.map((photo) => (
+              <Image key={photo.key} source={{ uri: photo.uri }} style={styles.photo} />
             ))}
+            {isUploading && <ActivityIndicator size="large" color="#FF7E70" />}
           </View>
         </ScrollView>
       </View>
 
       <View style={styles.buttonContainer}>
-        <AddPlusButton style={styles.customButton} onAddPress={pickImage} />
+        <AddPlusButton style={styles.customButton} onAddPress={pickImages} />
         <AddCameraButton style={styles.customButton} onPress={openCamera} />
       </View>
     </View>
