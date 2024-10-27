@@ -9,6 +9,8 @@ import uuid
 import numpy as np
 import logging
 from typing import List
+import pickle
+import base64
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -23,7 +25,7 @@ class Photo:
         face_embeddings: List[List[float]] = None, 
         photo_id: str = None
     ):
-        self.photo_id = photo_id or str(uuid.uuid4())  # Unique identifier for the photo
+        self.photo_id = photo_id #or str(uuid.uuid4())  # Unique identifier for the photo
         self.file_path = file_path
         self.image = None
         self.face_locations = []
@@ -121,7 +123,7 @@ class Photo:
             logging.error(f"Failed to save encodings for {self.metadata['file_name']}: {e}")
     
     @staticmethod
-    def from_dict(data: dict) -> 'Photo':
+    def from_dict(doc) -> 'Photo':
         """
         Creates a Photo instance from a dictionary (e.g., Firestore document).
         
@@ -131,6 +133,7 @@ class Photo:
         Returns:
             Photo: An instance of the Photo class.
         """
+        data = doc.to_dict()
         required_fields = ['file_path', 'author_id']
         for field in required_fields:
             if field not in data:
@@ -140,9 +143,13 @@ class Photo:
         upload_timestamp = data.get('upload_timestamp', datetime.utcnow().isoformat())
         is_account_photo = data.get('IsAccountPhoto', False)
         author_id = data['author_id']
-        photo_id = data.get('photo_id', str(uuid.uuid4()))
-        face_embeddings = data.get('face_embeddings', [])
-        
+        photo_id = doc.id #, str(uuid.uuid4()))
+        face_embeddings_pickled = data.get('face_embeddings')
+        padding_needed = len(face_embeddings_pickled) % 4
+        if padding_needed != 0:
+            face_embeddings_pickled += "=" * (4 - padding_needed)
+        face_embeddings = pickle.loads(base64.b64decode(face_embeddings_pickled))
+        print(face_embeddings)
         # Instantiate Photo without processing if face_embeddings are provided
         photo = Photo(
             file_path=file_path, 

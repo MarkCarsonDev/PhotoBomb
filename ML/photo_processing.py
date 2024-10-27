@@ -7,8 +7,10 @@ import os
 from os import listdir
 
 photo_objects = []
+project_root = os.path.dirname(os.path.abspath(__file__))
+photo_directory = os.path.join(project_root, "..", "..", "PhotoBomb", "photos", "all_photos")
 
-photo_directory = r"C:\Users\natef\Desktop\Everything\Programming\Projects\PhotoBomb\photos\all_photos"
+# photo_directory = r"C:\Users\natef\Desktop\Everything\Programming\Projects\PhotoBomb\photos\all_photos"
 for photo in os.listdir(photo_directory):
     # Check if the file is an image
     if photo.lower().endswith(('.png', '.jpg', '.jpeg')):
