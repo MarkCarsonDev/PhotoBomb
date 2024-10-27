@@ -141,7 +141,7 @@ class Photo:
         
         file_path = data['file_path']
         upload_timestamp = data.get('upload_timestamp', datetime.utcnow().isoformat())
-        is_account_photo = data.get('IsAccountPhoto', False)
+        is_account_photo = data.get('isAccountPhoto')
         author_id = data['author_id']
         photo_id = doc.id #, str(uuid.uuid4()))
         face_embeddings_pickled = data.get('face_embeddings')
