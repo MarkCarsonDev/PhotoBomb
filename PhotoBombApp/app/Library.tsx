@@ -1,42 +1,57 @@
 // app/Library.tsx
 import React, { useState } from 'react';
 import { View, StyleSheet, Image, ScrollView, StatusBar } from 'react-native';
-import { Button, Header } from 'react-native-elements';
+import { Header } from 'react-native-elements';
 import { Link } from 'expo-router';
 import AntDesign from '@expo/vector-icons/AntDesign';
-import { launchImageLibrary, ImageLibraryOptions, Asset } from 'react-native-image-picker';
+import * as ImagePicker from 'expo-image-picker'; // Import expo-image-picker
 import AddPlusButton from '@/components/AddPlusButton';
 import AddCameraButton from '@/components/AddCameraButton';
 
 export default function Library() {
   const [image, setImage] = useState<string | null>(null);
 
+  // Function to pick an image from the gallery
   const pickImage = async () => {
     try {
-      const options: ImageLibraryOptions = {
-        mediaType: 'photo',
-        selectionLimit: 1,
-        quality: 1,
-      };
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Permission to access photos is required!");
+        return;
+      }
 
-      const response = await new Promise((resolve, reject) => {
-        launchImageLibrary(options, (pickerResult) => {
-          if (pickerResult.didCancel) {
-            reject(new Error("User cancelled image picker"));
-          } else if (pickerResult.errorCode) {
-            reject(new Error(`Image Picker Error: ${pickerResult.errorMessage}`));
-          } else if (pickerResult.assets && pickerResult.assets.length > 0) {
-            resolve(pickerResult.assets[0]);
-          } else {
-            reject(new Error("Unexpected result from image picker"));
-          }
-        });
+      const pickerResult = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
       });
 
-      const pickedImage = response as Asset;
-      setImage(pickedImage.uri || null);
+      if (!pickerResult.canceled && pickerResult.assets && pickerResult.assets.length > 0) {
+        setImage(pickerResult.assets[0].uri || null);
+      }
     } catch (error) {
-      console.warn("Error picking image:");
+      console.warn("Error picking image:", error);
+    }
+  };
+
+  // Function to capture an image using the camera
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission Required", "Permission to access the camera is required!");
+        return;
+      }
+
+      const cameraResult = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 1,
+      });
+
+      if (!cameraResult.canceled && cameraResult.assets && cameraResult.assets.length > 0) {
+        setImage(cameraResult.assets[0].uri || null);
+      }
+    } catch (error) {
+      console.warn("Error opening camera:", error);
     }
   };
 
@@ -49,7 +64,6 @@ export default function Library() {
             <AntDesign name="user" size={24} color="#000" />
           </Link>
         }
-        leftComponent={<Button title="sort"/>}
         backgroundColor="#fff"
       />
 
@@ -66,17 +80,8 @@ export default function Library() {
       </View>
 
       <View style={styles.buttonContainer}>
-        <Button
-          onPress={pickImage}
-          buttonStyle={styles.customButton}
-          icon={<AddPlusButton />}
-          type="solid"
-        />
-        <Button
-          buttonStyle={styles.customButton}
-          icon={<AddCameraButton />}
-          type="solid"
-        />
+        <AddPlusButton style={styles.customButton} onAddPress={pickImage} />
+        <AddCameraButton style={styles.customButton} onPress={openCamera} />
       </View>
     </View>
   );
@@ -94,7 +99,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 7,
     paddingTop: StatusBar.currentHeight,
-    backgroundColor: 'D3D3D3',
+    backgroundColor: '#D3D3D3',
   },
   scrollViewContent: {
     paddingBottom: '100%',
@@ -118,7 +123,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 30,
   },
   customButton: {
-    backgroundColor: 'transparent',
-    padding: 10,
+    backgroundColor: '#FF7E70',
+    height: 60,
+    width: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 5,
   },
 });

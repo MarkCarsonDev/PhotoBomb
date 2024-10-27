@@ -1,4 +1,3 @@
-// app/VerificationPage.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,7 +8,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useAuth } from '../components/AuthContext';
 import { uploadPhoto } from './services/PhotoService';
 import { useRouter } from 'expo-router';
@@ -116,12 +115,11 @@ export default function VerificationPage() {
       {!capturedPhoto ? (
         <CameraView
           style={styles.camera}
-          type="front" // Use string 'front' directly
+          facing='front'
           ref={(ref) => setCameraRef(ref)}
           onCameraReady={() => setIsCameraReady(true)}
         >
           <View style={styles.cameraButtonContainer}>
-            
             <Button title={isCameraReady ? "Take Selfie" : "Camera Uninitialized"} onPress={handleTakePhoto} disabled={!isCameraReady} />
           </View>
         </CameraView>
@@ -167,7 +165,9 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cameraButtonContainer: {
-    backgroundColor: 'transparent',
+    backgroundColor: 'white',
+    borderRadius: 50,
+    opacity: 0.8,
     alignSelf: 'center',
     marginBottom: 20,
   },
