@@ -93,7 +93,7 @@ class Photo:
         author_uid = data['author_uid']
         photo_id = doc.id #, str(uuid.uuid4()))
         face_embeddings_pickled = data.get('face_embeddings')
-        if face_embeddings_pickled =="faceless":
+        if face_embeddings_pickled !="faceless":
             padding_needed = len(face_embeddings_pickled) % 4
             if padding_needed != 0:
                 face_embeddings_pickled += "=" * (4 - padding_needed)

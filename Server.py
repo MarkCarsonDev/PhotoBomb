@@ -50,8 +50,18 @@ def create_people_cluster(photo_list: List[Photo]) -> Dict[int, List[str]]:
     photo_references = []
 
     for photo in photo_list:
-        all_encodings.extend(photo.face_encodings)
-        photo_references.extend([photo] * len(photo.face_encodings))
+        if isinstance(photo.face_encodings, str):
+            # Decode and unpickle if it's a base64 string
+            face_encodings = pickle.loads(base64.b64decode(photo.face_encodings))
+        else:
+            # Directly use if it's already a list
+            face_encodings = photo.face_encodings
+
+        # Ensure all encodings are valid 128-dimensional vectors
+        valid_encodings = [enc for enc in face_encodings if isinstance(enc, (list, np.ndarray)) and len(enc) == 128]
+
+        all_encodings.extend(valid_encodings)
+        photo_references.extend([photo] * len(valid_encodings))
 
     if not all_encodings:
         logging.warning("No face encodings found to cluster.")
