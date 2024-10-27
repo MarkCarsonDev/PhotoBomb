@@ -145,11 +145,13 @@ class Photo:
         author_id = data['author_id']
         photo_id = doc.id #, str(uuid.uuid4()))
         face_embeddings_pickled = data.get('face_embeddings')
-        padding_needed = len(face_embeddings_pickled) % 4
-        if padding_needed != 0:
-            face_embeddings_pickled += "=" * (4 - padding_needed)
-        face_embeddings = pickle.loads(base64.b64decode(face_embeddings_pickled))
-        print(face_embeddings)
+        if len(face_embeddings_pickled) >13:
+            padding_needed = len(face_embeddings_pickled) % 4
+            if padding_needed != 0:
+                face_embeddings_pickled += "=" * (4 - padding_needed)
+            face_embeddings = pickle.loads(base64.b64decode(face_embeddings_pickled))
+        else:
+            face_embeddings = face_embeddings_pickled
         # Instantiate Photo without processing if face_embeddings are provided
         photo = Photo(
             file_path=file_path, 
